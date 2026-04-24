@@ -1,0 +1,384 @@
+/*
+  Design System: "Cinema Noir Console"
+  File purpose: Xtream Codes API client — authenticate, fetch categories,
+  channels (live), movies (VOD), series, and resolve stream URLs.
+
+  Xtream Codes reference endpoints:
+    Auth / info:    {host}/player_api.php?username={u}&password={p}
+    Live cats:      ...&action=get_live_categories
+    Live streams:   ...&action=get_live_streams[&category_id=ID]
+    VOD cats:       ...&action=get_vod_categories
+    VOD streams:    ...&action=get_vod_streams[&category_id=ID]
+    VOD info:       ...&action=get_vod_info&vod_id=ID
+    Series cats:    ...&action=get_series_categories
+    Series:         ...&action=get_series[&category_id=ID]
+    Series info:    ...&action=get_series_info&series_id=ID
+
+  Stream URLs:
+    Live (HLS):     {host}/live/{user}/{pass}/{stream_id}.m3u8
+    Live (TS):      {host}/live/{user}/{pass}/{stream_id}.ts
+    VOD:            {host}/movie/{user}/{pass}/{stream_id}.{container_extension}
+    Series episode: {host}/series/{user}/{pass}/{episode_id}.{container_extension}
+*/
+
+export interface XtreamCredentials {
+  host: string; // e.g. http://example.com:8080
+  username: string;
+  password: string;
+}
+
+export interface UserInfo {
+  username: string;
+  password: string;
+  message?: string;
+  auth: number;
+  status: string;
+  exp_date?: string | null;
+  is_trial?: string;
+  active_cons?: string;
+  created_at?: string;
+  max_connections?: string;
+  allowed_output_formats?: string[];
+}
+
+export interface ServerInfo {
+  url?: string;
+  port?: string;
+  https_port?: string;
+  server_protocol?: string;
+  rtmp_port?: string;
+  timezone?: string;
+  timestamp_now?: number;
+  time_now?: string;
+}
+
+export interface AuthResponse {
+  user_info: UserInfo;
+  server_info: ServerInfo;
+}
+
+export interface Category {
+  category_id: string;
+  category_name: string;
+  parent_id?: number;
+}
+
+export interface LiveStream {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  epg_channel_id: string | null;
+  added: string;
+  category_id: string;
+  tv_archive: number;
+  direct_source: string;
+  tv_archive_duration: number;
+}
+
+export interface VodStream {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  rating: string;
+  rating_5based: number;
+  added: string;
+  category_id: string;
+  container_extension: string;
+  custom_sid?: string;
+  direct_source?: string;
+}
+
+export interface SeriesItem {
+  num: number;
+  name: string;
+  series_id: number;
+  cover: string;
+  plot?: string;
+  cast?: string;
+  director?: string;
+  genre?: string;
+  releaseDate?: string;
+  last_modified?: string;
+  rating?: string;
+  rating_5based?: number;
+  backdrop_path?: string[];
+  youtube_trailer?: string;
+  episode_run_time?: string;
+  category_id: string;
+}
+
+export interface SeriesEpisode {
+  id: string;
+  episode_num: number | string;
+  title: string;
+  container_extension: string;
+  info?: {
+    movie_image?: string;
+    plot?: string;
+    duration_secs?: number;
+    duration?: string;
+    rating?: number | string;
+  };
+  added?: string;
+  season?: number;
+  direct_source?: string;
+}
+
+export interface SeriesInfo {
+  seasons: Array<{
+    name: string;
+    episode_count: number | string;
+    overview?: string;
+    air_date?: string;
+    cover?: string;
+    cover_big?: string;
+    season_number: number;
+  }>;
+  info: {
+    name: string;
+    cover: string;
+    plot?: string;
+    cast?: string;
+    director?: string;
+    genre?: string;
+    releaseDate?: string;
+    rating?: string;
+    rating_5based?: number;
+    backdrop_path?: string[];
+    youtube_trailer?: string;
+    episode_run_time?: string;
+    category_id: string;
+  };
+  episodes: Record<string, SeriesEpisode[]>; // keyed by season number as string
+}
+
+export interface VodInfo {
+  info: {
+    movie_image?: string;
+    tmdb_id?: string;
+    backdrop?: string;
+    backdrop_path?: string[];
+    youtube_trailer?: string;
+    genre?: string;
+    plot?: string;
+    cast?: string;
+    rating?: string;
+    director?: string;
+    releasedate?: string;
+    duration_secs?: number;
+    duration?: string;
+  };
+  movie_data: {
+    stream_id: number;
+    name: string;
+    added: string;
+    category_id: string;
+    container_extension: string;
+    custom_sid?: string;
+    direct_source?: string;
+  };
+}
+
+function normalizeHost(host: string): string {
+  let h = (host || "").trim();
+  if (!h) return "";
+  if (!/^https?:\/\//i.test(h)) h = "http://" + h;
+  // remove trailing slash
+  h = h.replace(/\/+$/, "");
+  return h;
+}
+
+function buildApiUrl(
+  creds: XtreamCredentials,
+  params: Record<string, string | number | undefined> = {},
+): string {
+  const host = normalizeHost(creds.host);
+  const url = new URL(host + "/player_api.php");
+  url.searchParams.set("username", creds.username);
+  url.searchParams.set("password", creds.password);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") {
+      url.searchParams.set(k, String(v));
+    }
+  }
+  return url.toString();
+}
+
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, { signal, credentials: "omit" });
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status} ${res.statusText}`);
+  }
+  const text = await res.text();
+  if (!text || text.trim() === "") {
+    // Some servers return empty string on invalid creds
+    return [] as unknown as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Invalid JSON returned by server");
+  }
+}
+
+export async function authenticate(
+  creds: XtreamCredentials,
+  signal?: AbortSignal,
+): Promise<AuthResponse> {
+  const url = buildApiUrl(creds);
+  const data = await fetchJson<AuthResponse | { user_info?: UserInfo }>(
+    url,
+    signal,
+  );
+  const ui = (data as AuthResponse).user_info;
+  if (!ui || Number(ui.auth) !== 1) {
+    const msg = ui?.message || "Invalid credentials or server URL";
+    throw new Error(msg);
+  }
+  const status = (ui.status || "").toLowerCase();
+  if (status && status !== "active") {
+    throw new Error(`Account status: ${ui.status}`);
+  }
+  return data as AuthResponse;
+}
+
+export async function getLiveCategories(
+  creds: XtreamCredentials,
+): Promise<Category[]> {
+  return fetchJson<Category[]>(
+    buildApiUrl(creds, { action: "get_live_categories" }),
+  );
+}
+
+export async function getLiveStreams(
+  creds: XtreamCredentials,
+  categoryId?: string,
+): Promise<LiveStream[]> {
+  return fetchJson<LiveStream[]>(
+    buildApiUrl(creds, {
+      action: "get_live_streams",
+      category_id: categoryId,
+    }),
+  );
+}
+
+export async function getVodCategories(
+  creds: XtreamCredentials,
+): Promise<Category[]> {
+  return fetchJson<Category[]>(
+    buildApiUrl(creds, { action: "get_vod_categories" }),
+  );
+}
+
+export async function getVodStreams(
+  creds: XtreamCredentials,
+  categoryId?: string,
+): Promise<VodStream[]> {
+  return fetchJson<VodStream[]>(
+    buildApiUrl(creds, {
+      action: "get_vod_streams",
+      category_id: categoryId,
+    }),
+  );
+}
+
+export async function getVodInfo(
+  creds: XtreamCredentials,
+  vodId: number,
+): Promise<VodInfo> {
+  return fetchJson<VodInfo>(
+    buildApiUrl(creds, { action: "get_vod_info", vod_id: vodId }),
+  );
+}
+
+export async function getSeriesCategories(
+  creds: XtreamCredentials,
+): Promise<Category[]> {
+  return fetchJson<Category[]>(
+    buildApiUrl(creds, { action: "get_series_categories" }),
+  );
+}
+
+export async function getSeries(
+  creds: XtreamCredentials,
+  categoryId?: string,
+): Promise<SeriesItem[]> {
+  return fetchJson<SeriesItem[]>(
+    buildApiUrl(creds, { action: "get_series", category_id: categoryId }),
+  );
+}
+
+export async function getSeriesInfo(
+  creds: XtreamCredentials,
+  seriesId: number,
+): Promise<SeriesInfo> {
+  return fetchJson<SeriesInfo>(
+    buildApiUrl(creds, { action: "get_series_info", series_id: seriesId }),
+  );
+}
+
+// ---------- Stream URL builders ----------
+
+export function buildLiveStreamUrl(
+  creds: XtreamCredentials,
+  streamId: number | string,
+  format: "m3u8" | "ts" = "m3u8",
+): string {
+  const host = normalizeHost(creds.host);
+  const u = encodeURIComponent(creds.username);
+  const p = encodeURIComponent(creds.password);
+  if (format === "ts") return `${host}/live/${u}/${p}/${streamId}.ts`;
+  return `${host}/live/${u}/${p}/${streamId}.m3u8`;
+}
+
+export function buildVodStreamUrl(
+  creds: XtreamCredentials,
+  streamId: number | string,
+  extension: string,
+): string {
+  const host = normalizeHost(creds.host);
+  const u = encodeURIComponent(creds.username);
+  const p = encodeURIComponent(creds.password);
+  const ext = (extension || "mp4").replace(/^\./, "");
+  return `${host}/movie/${u}/${p}/${streamId}.${ext}`;
+}
+
+export function buildSeriesStreamUrl(
+  creds: XtreamCredentials,
+  episodeId: number | string,
+  extension: string,
+): string {
+  const host = normalizeHost(creds.host);
+  const u = encodeURIComponent(creds.username);
+  const p = encodeURIComponent(creds.password);
+  const ext = (extension || "mp4").replace(/^\./, "");
+  return `${host}/series/${u}/${p}/${episodeId}.${ext}`;
+}
+
+// Share link encoder/decoder — lets users share configured players via URL hash
+// Example: #c=base64url(json)
+export function encodeShareHash(creds: XtreamCredentials): string {
+  const json = JSON.stringify(creds);
+  const b64 = btoa(unescape(encodeURIComponent(json)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return b64;
+}
+
+export function decodeShareHash(hash: string): XtreamCredentials | null {
+  try {
+    const s = hash.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+    const json = decodeURIComponent(escape(atob(s + pad)));
+    const obj = JSON.parse(json);
+    if (obj && obj.host && obj.username && obj.password) return obj;
+    return null;
+  } catch {
+    return null;
+  }
+}

@@ -1,25 +1,31 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+/*
+  Design System: "Cinema Noir Console"
+  File purpose: Root redirect — pushes users to /app/live if signed in,
+  else to /login. Also consumes any #c=... share hash.
+*/
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
- */
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2 } from "lucide-react";
+
 export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const [, navigate] = useLocation();
+  const { credentials } = useAuth();
+
+  useEffect(() => {
+    if (credentials) navigate("/app/live", { replace: true });
+    else navigate("/login", { replace: true });
+  }, [credentials, navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div className="min-h-screen grid place-items-center bg-background text-foreground">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span className="font-mono text-xs tracking-[0.2em] uppercase">
+          Loading console…
+        </span>
+      </div>
     </div>
   );
 }

@@ -37,11 +37,10 @@ pnpm preview      # preview the production build
 This project ships with a `vercel.json` that builds the client and serves it as a static SPA with proper rewrites. To deploy:
 
 1. Import this repository in Vercel (`https://vercel.com/new`).
-2. Select the **KNPC** team.
-3. Vercel detects the framework as **Vite** automatically. Keep the defaults:
+2. Vercel detects the framework as **Vite** automatically. Keep the defaults:
    - Build command: `pnpm build`
    - Output directory: `dist/public`
-4. Click **Deploy**.
+3. Click **Deploy**.
 
 No environment variables are required — the player runs entirely client-side.
 

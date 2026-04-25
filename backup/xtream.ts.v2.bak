@@ -215,24 +215,16 @@ function buildApiUrl(
  *   - CORS (most IPTV servers don't send CORS headers)
  * The proxy lives at `/api/xtream?target=<encoded-url>`.
  */
-// Cloudflare Worker proxy URL
-const CLOUDFLARE_PROXY_URL = import.meta.env.VITE_CLOUDFLARE_PROXY_URL || 
-  "https://fahad-iptv-proxy.YOUR_SUBDOMAIN.workers.dev";
-
-function cfB64UrlEncode(s: string): string {
-  const b64 = btoa(unescape(encodeURIComponent(s)));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 function toProxiedUrl(originalUrl: string): string {
   if (typeof window === "undefined") return originalUrl;
+  // If it's already pointing at our own origin (dev fallback), keep it.
   try {
     const u = new URL(originalUrl);
     if (u.origin === window.location.origin) return originalUrl;
   } catch {
     return originalUrl;
   }
-  return `${CLOUDFLARE_PROXY_URL}/?u=${cfB64UrlEncode(originalUrl)}`;
+  return `/api/xtream?target=${encodeURIComponent(originalUrl)}`;
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {

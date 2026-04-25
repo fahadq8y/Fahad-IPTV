@@ -20,25 +20,7 @@ interface VideoPlayerProps {
 }
 
 function isHlsUrl(url: string): boolean {
-  // Direct .m3u8 URL
-  if (/\.m3u8(\?|$)/i.test(url)) return true;
-  // Proxied URL: /api/stream?u=<base64url-encoded original>
-  // Detect by decoding the `u` parameter when present.
-  try {
-    const u = new URL(url, typeof window !== "undefined" ? window.location.origin : "http://x");
-    if (u.pathname.endsWith("/api/stream")) {
-      const enc = u.searchParams.get("u");
-      if (enc) {
-        const b64 = enc.replace(/-/g, "+").replace(/_/g, "/");
-        const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
-        const decoded = decodeURIComponent(escape(atob(b64 + pad)));
-        return /\.m3u8(\?|$)/i.test(decoded);
-      }
-    }
-  } catch {
-    // ignore — fall through to false
-  }
-  return false;
+  return /\.m3u8(\?|$)/i.test(url);
 }
 
 export default function VideoPlayer({

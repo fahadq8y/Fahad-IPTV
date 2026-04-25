@@ -343,24 +343,6 @@ export async function getSeriesInfo(
 
 // ---------- Stream URL builders ----------
 
-/**
- * base64url-encode a string for safe transport in a query parameter.
- */
-function streamB64UrlEncode(s: string): string {
-  const b64 = btoa(unescape(encodeURIComponent(s)));
-  return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-/**
- * Wrap any media URL so it goes through our /api/stream proxy.
- * In the browser this avoids Mixed Content + CORS for HLS/MP4/TS.
- * On the server (SSR) we keep the raw URL.
- */
-function toStreamProxyUrl(originalUrl: string): string {
-  if (typeof window === "undefined") return originalUrl;
-  return `/api/stream?u=${streamB64UrlEncode(originalUrl)}`;
-}
-
 export function buildLiveStreamUrl(
   creds: XtreamCredentials,
   streamId: number | string,
@@ -369,11 +351,8 @@ export function buildLiveStreamUrl(
   const host = normalizeHost(creds.host);
   const u = encodeURIComponent(creds.username);
   const p = encodeURIComponent(creds.password);
-  const direct =
-    format === "ts"
-      ? `${host}/live/${u}/${p}/${streamId}.ts`
-      : `${host}/live/${u}/${p}/${streamId}.m3u8`;
-  return toStreamProxyUrl(direct);
+  if (format === "ts") return `${host}/live/${u}/${p}/${streamId}.ts`;
+  return `${host}/live/${u}/${p}/${streamId}.m3u8`;
 }
 
 export function buildVodStreamUrl(
@@ -385,8 +364,7 @@ export function buildVodStreamUrl(
   const u = encodeURIComponent(creds.username);
   const p = encodeURIComponent(creds.password);
   const ext = (extension || "mp4").replace(/^\./, "");
-  const direct = `${host}/movie/${u}/${p}/${streamId}.${ext}`;
-  return toStreamProxyUrl(direct);
+  return `${host}/movie/${u}/${p}/${streamId}.${ext}`;
 }
 
 export function buildSeriesStreamUrl(
@@ -398,8 +376,7 @@ export function buildSeriesStreamUrl(
   const u = encodeURIComponent(creds.username);
   const p = encodeURIComponent(creds.password);
   const ext = (extension || "mp4").replace(/^\./, "");
-  const direct = `${host}/series/${u}/${p}/${episodeId}.${ext}`;
-  return toStreamProxyUrl(direct);
+  return `${host}/series/${u}/${p}/${episodeId}.${ext}`;
 }
 
 // Share link encoder/decoder — lets users share configured players via URL hash

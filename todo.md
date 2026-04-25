@@ -11,3 +11,10 @@
 - [x] تشخيص خطأ "Failed to fetch" عند تسجيل الدخول
 - [x] إصلاح مشكلة CORS / mixed content في طلبات Xtream API (Vercel proxy)
 - [x] إعادة النشر بعد الإصلاح
+
+## مشكلة البث (2026-04-25)
+- [x] تحليل سبب فشل تشغيل القنوات المباشرة
+- [x] تحليل سبب رسالة "This stream format can't be played"
+- [x] إضافة stream proxy لتمرير ملفات m3u8 و .mp4 و .ts عبر Vercel
+- [x] تحسين أداء الـ proxy للـ API (تقليل البطء)
+- [x] إعادة النشر

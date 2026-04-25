@@ -58,55 +58,25 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // Abort upstream after 9s so we never exceed the 10s function limit.
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 9000);
-
-    let upstream: Response;
-    try {
-      upstream = await fetch(parsed.toString(), {
-        method: "GET",
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; FahadIPTV-Proxy/1.0; +https://fahad-iptv.vercel.app)",
-          Accept: "application/json, text/plain, */*",
-          "Accept-Encoding": "gzip, deflate",
-        },
-        redirect: "follow",
-        signal: ctrl.signal,
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    // Fetch the upstream resource (Node 18+/20+ has global fetch on Vercel)
+    const upstream = await fetch(parsed.toString(), {
+      method: "GET",
+      headers: {
+        // Some Xtream servers reject empty UA
+        "User-Agent":
+          "Mozilla/5.0 (compatible; FahadIPTV-Proxy/1.0; +https://fahad-iptv.vercel.app)",
+        Accept: "application/json, text/plain, */*",
+      },
+      redirect: "follow",
+    });
 
     const contentType =
       upstream.headers.get("content-type") || "application/json; charset=utf-8";
+    const body = await upstream.arrayBuffer();
 
     res.setHeader("Content-Type", contentType);
-    // Allow short-lived caching of category lists in the browser to speed up
-    // repeated navigations within the SPA.
-    const isList = /action=get_(live|vod|series)(_categories)?/i.test(
-      parsed.search,
-    );
-    res.setHeader(
-      "Cache-Control",
-      isList ? "private, max-age=120" : "no-store",
-    );
-    res.status(upstream.status);
-
-    // Stream the body so large category lists start arriving immediately
-    if (upstream.body) {
-      try {
-        // @ts-ignore - Node 18+ has Readable.fromWeb
-        const { Readable } = await import("node:stream");
-        Readable.fromWeb(upstream.body as any).pipe(res);
-        return;
-      } catch {
-        // fall through to buffered path
-      }
-    }
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf);
+    res.setHeader("Cache-Control", "no-store");
+    res.status(upstream.status).send(Buffer.from(body));
   } catch (err: any) {
     res.status(502).json({
       error: "Upstream fetch failed",

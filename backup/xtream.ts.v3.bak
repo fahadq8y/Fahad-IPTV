@@ -217,7 +217,7 @@ function buildApiUrl(
  */
 // Cloudflare Worker proxy URL
 const CLOUDFLARE_PROXY_URL = import.meta.env.VITE_CLOUDFLARE_PROXY_URL || 
-  "https://fahad-iptv-proxy.f5h5dq8y.workers.dev";
+  "https://fahad-iptv-proxy.YOUR_SUBDOMAIN.workers.dev";
 
 function cfB64UrlEncode(s: string): string {
   const b64 = btoa(unescape(encodeURIComponent(s)));

@@ -208,28 +208,8 @@ function buildApiUrl(
   return url.toString();
 }
 
-/**
- * Decide whether the upstream URL needs to be routed through our serverless
- * proxy. We always proxy in the browser to avoid:
- *   - Mixed Content (HTTPS site -> HTTP IPTV server is blocked)
- *   - CORS (most IPTV servers don't send CORS headers)
- * The proxy lives at `/api/xtream?target=<encoded-url>`.
- */
-function toProxiedUrl(originalUrl: string): string {
-  if (typeof window === "undefined") return originalUrl;
-  // If it's already pointing at our own origin (dev fallback), keep it.
-  try {
-    const u = new URL(originalUrl);
-    if (u.origin === window.location.origin) return originalUrl;
-  } catch {
-    return originalUrl;
-  }
-  return `/api/xtream?target=${encodeURIComponent(originalUrl)}`;
-}
-
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const proxied = toProxiedUrl(url);
-  const res = await fetch(proxied, { signal, credentials: "omit" });
+  const res = await fetch(url, { signal, credentials: "omit" });
   if (!res.ok) {
     throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   }

@@ -1,6 +1,0 @@
-name = "fahad-iptv-proxy"
-main = "src/index.ts"
-compatibility_date = "2024-04-01"
-compatibility_flags = ["nodejs_compat"]
-
-account_id = "abe62ab6f26e47c0bb386f955fa039c7"

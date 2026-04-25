@@ -215,9 +215,9 @@ function buildApiUrl(
  *   - CORS (most IPTV servers don't send CORS headers)
  * The proxy lives at `/api/xtream?target=<encoded-url>`.
  */
-// CORS Proxy — free, unlimited, no setup required
-// Uses corsproxy.io for bypassing CORS restrictions
-const CORS_PROXY_URL = "https://corsproxy.io/";
+// Cloudflare Worker proxy URL
+const CLOUDFLARE_PROXY_URL = import.meta.env.VITE_CLOUDFLARE_PROXY_URL || 
+  "https://fahad-iptv-proxy.f5h5dq8y.workers.dev";
 
 function cfB64UrlEncode(s: string): string {
   const b64 = btoa(unescape(encodeURIComponent(s)));
@@ -225,15 +225,14 @@ function cfB64UrlEncode(s: string): string {
 }
 
 function toProxiedUrl(originalUrl: string): string {
-  // If already on same origin, no proxy needed
+  if (typeof window === "undefined") return originalUrl;
   try {
     const u = new URL(originalUrl);
     if (u.origin === window.location.origin) return originalUrl;
   } catch {
     return originalUrl;
   }
-  // Use corsproxy.io for CORS bypass
-  return `${CORS_PROXY_URL}${originalUrl}`;
+  return `${CLOUDFLARE_PROXY_URL}/?u=${cfB64UrlEncode(originalUrl)}`;
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {

@@ -1,18 +1,6 @@
 name = "fahad-iptv-proxy"
 main = "src/index.ts"
 compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
 
-[env.production]
-name = "fahad-iptv-proxy"
-route = "https://fahad-iptv-proxy.*/api/*"
-zone_id = "YOUR_ZONE_ID"
-
-# Build configuration
-[build]
-command = "npm install && npm run build"
-cwd = "./"
-watch_paths = ["src/**/*.ts"]
-
-[build.upload]
-format = "modules"
-main = "./dist/index.js"
+account_id = "abe62ab6f26e47c0bb386f955fa039c7"
